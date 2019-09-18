@@ -1,606 +1,295 @@
 <?php
 /**
- *
- * @since   2016-02-18
- * @author  zhaoxiang <zhaoxiang051405@outlook.com>
+ * 权限相关配置
+ * @since   2018-02-06
+ * @author  zhaoxiang <zhaoxiang051405@gmail.com>
  */
 
 namespace app\admin\controller;
 
 
-use app\admin\model\AuthGroup;
-use app\admin\model\AuthGroupAccess;
-use app\admin\model\AuthRule;
-use app\admin\model\User;
-use app\admin\model\UserData;
-use think\Validate;
+use app\model\AdminAuthGroup;
+use app\model\AdminAuthGroupAccess;
+use app\model\AdminAuthRule;
+use app\model\AdminMenu;
+use app\util\ReturnCode;
+use app\util\Tools;
 
 class Auth extends Base {
-    /**
-     * 用户组列表获取
-     */
-    public function index(){
-        $data = [];
-        $dataObj = AuthGroup::all();
-        if( !is_null($dataObj) ){
-            foreach ($dataObj as $value){
-                $data[] = $value->toArray();
-            }
-        }
-        $table = [
-            'tempType' => 'table',
-            'header' => [
-                [
-                    'field' => 'name',
-                    'info' => '用户组'
-                ],
-                [
-                    'field' => 'description',
-                    'info' => '描述'
-                ],
-                [
-                    'field' => 'access',
-                    'info' => '访问授权'
-                ],
-                [
-                    'field' => 'userAuth',
-                    'info' => '成员授权'
-                ],
-                [
-                    'field' => 'status',
-                    'info' => '状态'
-                ]
-            ],
-            'topButton' => [
-                [
-                    'href' => 'Auth/add',
-                    'class'=> 'btn-success',
-                    'info'=> '新增',
-                    'icon' => 'fa fa-plus',
-                    'confirm' => 0,
-                ]
-            ],
-            'rightButton' => [
-                [
-                    'info' => '编辑',
-                    'href' => 'Auth/edit',
-                    'class'=> 'btn-info',
-                    'param'=> [$this->primaryKey],
-                    'icon' => 'fa fa-pencil',
-                    'confirm' => 0,
-                    'show' => ''
-                ],
-                [
-                    'info' => '启用',
-                    'href' => 'Auth/open',
-                    'class'=> 'btn-success ajax-put-url',
-                    'param'=> [$this->primaryKey],
-                    'icon' => 'fa fa-check',
-                    'confirm' => 1,
-                    'show' => ['status', 0]
-                ],
-                [
-                    'info' => '禁用',
-                    'href' => 'Auth/close',
-                    'class'=> 'btn-warning ajax-put-url',
-                    'param'=> [$this->primaryKey],
-                    'icon' => 'fa fa-close',
-                    'confirm' => 1,
-                    'show' => ['status', 1]
-                ],
-                [
-                    'info' => '删除',
-                    'href' => 'Auth/del',
-                    'class'=> 'btn-danger ajax-delete',
-                    'param'=> [$this->primaryKey],
-                    'icon' => 'fa fa-trash',
-                    'confirm' => 1,
-                ]
-            ],
-            'typeRule' => [
-                'access' => [
-                    'module' => 'a',
-                    'rule' => [
-                        'info' => '访问授权',
-                        'href' => url('Auth/access'),
-                        'param'=> [$this->primaryKey],
-                        'class' => 'refresh'
-                    ]
-                ],
-                'userAuth' => [
-                    'module' => 'a',
-                    'rule' => [
-                        'info' => '成员授权',
-                        'href' => url('Auth/userAuth'),
-                        'param'=> [$this->primaryKey],
-                        'class' => 'refresh'
-                    ]
-                ],
-                'hide' => [
-                    'module' => 'label',
-                    'rule' => [
-                        [
-                            'info' => '显示',
-                            'class' => 'label label-success'
-                        ],
-                        [
-                            'info' => '隐藏',
-                            'class' => 'label label-warning'
-                        ]
-                    ]
-                ],
-                'status' => [
-                    'module' => 'label',
-                    'rule' => [
-                        [
-                            'info' => '禁用',
-                            'class' => 'label label-danger'
-                        ],
-                        [
-                            'info' => '启用',
-                            'class' => 'label label-success'
-                        ]
-                    ]
-                ]
-            ],
-            'data' => $data
-        ];
-        $table = $this->_prepareTemplate($table);
-        $this->result($table, ReturnCode::GET_TEMPLATE_SUCCESS);
-    }
 
     /**
-     * 新增权限组
-     */
-    public function add(){
-        if( $this->request->isPost() ){
-            $authGroupModel = new AuthGroup();
-            $result = $authGroupModel->allowField(true)->validate(
-                [
-                    'name' => 'require',
-                ],[
-                    'name.require' => '用户组名不能为空',
-                ]
-            )->save($this->request->post());
-            if(false === $result){
-                $this->error($authGroupModel->getError());
-            }else{
-                $this->success('操作成功！', url('Auth/index'));
-            }
-        }else {
-            $form = [
-                'formTitle' => $this->menuInfo['name'],
-                'tempType' => 'add',
-                'formAttr' => [
-                    'target' => url('Auth/add'),
-                    'formId' => 'add-authGroup-form',
-                    'backUrl' => url('Auth/index'),
-                ],
-                'formList' => [
-                    [
-                        'module' => 'text',
-                        'description' => '',
-                        'info' => '用户组名称：',
-                        'attr' => [
-                            'name' => 'name',
-                            'value' => '',
-                            'placeholder' => ''
-                        ]
-                    ],
-                    [
-                        'module' => 'textarea',
-                        'description' => '',
-                        'info' => '用户组描述：',
-                        'attr' => [
-                            'name' => 'description',
-                            'value' => '',
-                            'placeholder' => ''
-                        ]
-                    ]
-                ]
-            ];
-            $this->result($form, ReturnCode::GET_TEMPLATE_SUCCESS);
-        }
-    }
-
-    /**
-     * 编辑用户组
-     */
-    public function edit(){
-        if( $this->request->isPut() ){
-            $data = $this->request->put();
-            $validate = new Validate([
-                'name' => 'require',
-            ],[
-                'name.require' => '用户组名不能为空',
-            ]);
-            if(!$validate->check($data)){
-                $this->error($validate->getError());
-            }else{
-                $menuModel = new AuthGroup();
-                $menuModel->allowField(true)->update($data);
-                $this->success('操作成功！', url('Auth/index'));
-            }
-        }else{
-            $detail = AuthGroup::get($this->request->get($this->primaryKey))->toArray();
-            $form = [
-                'formTitle' => $this->menuInfo['name'],
-                'tempType' => 'edit',
-                'formAttr' => [
-                    'target' => url('Auth/edit'),
-                    'formId' => 'edit-authGroup-form',
-                    'backUrl' => url('Auth/index'),
-                ],
-                'formList' => [
-                    [
-                        'module' => 'hidden',
-                        'description' => '',
-                        'info' => '',
-                        'attr' => [
-                            'name' => $this->primaryKey,
-                            'value' => $detail['id'],
-                            'placeholder' => ''
-                        ]
-                    ],
-                    [
-                        'module' => 'text',
-                        'description' => '',
-                        'info' => '用户组名称：',
-                        'attr' => [
-                            'name' => 'name',
-                            'value' => $detail['name'],
-                            'placeholder' => ''
-                        ]
-                    ],
-                    [
-                        'module' => 'textarea',
-                        'description' => '',
-                        'info' => '用户组描述：',
-                        'attr' => [
-                            'name' => 'description',
-                            'value' => $detail['description'],
-                            'placeholder' => ''
-                        ]
-                    ]
-                ]
-            ];
-            $this->result($form, ReturnCode::GET_TEMPLATE_SUCCESS);
-        }
-    }
-
-    /**
-     * 启用用户组
-     */
-    public function open(){
-        if( $this->request->isPut() ){
-            $id = $this->request->put($this->primaryKey);
-            $authGroupObj = AuthGroup::get([$this->primaryKey => $id]);
-            if( is_null($authGroupObj) ){
-                $this->error('用户组不存在','');
-            }else{
-                $authGroupObj->status = 1;
-                $authGroupObj->save();
-                $this->success('操作成功', url('Auth/index'));
-            }
-        }
-    }
-
-    /**
-     * 禁用用户组
-     */
-    public function close(){
-        if( $this->request->isPut() ){
-            $id = $this->request->put($this->primaryKey);
-            $authGroupObj = AuthGroup::get([$this->primaryKey => $id]);
-            if( is_null($authGroupObj) ){
-                $this->error('用户组不存在','');
-            }else{
-                $authGroupObj->status = 0;
-                $authGroupObj->save();
-                $this->success('操作成功', url('Auth/index'));
-            }
-        }
-    }
-
-    /**
-     * 删除用户组
-     */
-    public function del(){
-        if( $this->request->isDelete() ){
-            $key = $this->request->delete($this->primaryKey);
-            $authAccessNum = AuthGroupAccess::where(['groupId' => $key])->count();
-            if( $authAccessNum ){
-                $this->error('当前用户组存在用户不能删除！');
-            }
-            AuthGroup::destroy([$this->primaryKey => $key]);
-            AuthRule::destroy(['groupId' => $key]);
-            $this->success('操作成功', url('Auth/index'));
-        }
-    }
-
-    /**
-     * 用户授权（加用户入组）
-     */
-    public function group(){
-        if( $this->request->isPut() ){
-            $authAccessObj = AuthGroupAccess::get(['uid' => $this->request->put('uid')]);
-            if( is_null($authAccessObj) ){
-                $authAccessObj = new AuthGroupAccess();
-            }
-            $authAccessObj->groupId = $this->request->put('groupId');
-            $authAccessObj->uid = $this->request->put('uid');
-            $authAccessObj->save();
-            $this->success('操作成功', url('User/index'));
-        }else{
-            $authAccess = '';
-            $authGroupArr = [];
-            $authAccessObj = AuthGroupAccess::get(['uid' => $this->request->get($this->primaryKey)]);
-            if( !is_null($authAccessObj) ){
-                $authAccess = $authAccessObj->groupId;
-            }
-            $authGroupObj = AuthGroup::all(['status' => 1]);
-            if( !empty($authGroupObj) ){
-                foreach ( $authGroupObj as $value ){
-                    $authGroupArr[$value[$this->primaryKey]] = $value->name;
-                }
-            }else{
-                $this->result('', ReturnCode::GET_TEMPLATE_ERROR, '没有可用用户组');
-            }
-            $form = [
-                'formTitle' => $this->menuInfo['name'],
-                'tempType' => 'edit',
-                'formAttr' => [
-                    'target' => url('Auth/group'),
-                    'formId' => 'add-authGroup-form',
-                    'backUrl' => url('User/index'),
-                ],
-                'formList' => [
-                    [
-                        'module' => 'hidden',
-                        'description' => '',
-                        'info' => '',
-                        'attr' => [
-                            'name' => 'uid',
-                            'value' => $this->request->get($this->primaryKey),
-                            'placeholder' => ''
-                        ]
-                    ],
-                    [
-                        'module' => 'radio',
-                        'description' => '',
-                        'info' => '请选择用户组：',
-                        'attr' => [
-                            'name' => 'groupId',
-                            'value' => $authAccess,
-                            'options' => $authGroupArr
-                        ]
-                    ],
-                ]
-            ];
-            $this->result($form, ReturnCode::GET_TEMPLATE_SUCCESS);
-        }
-    }
-
-    /**
-     * 权限组用户维护
-     */
-    public function userAuth(){
-        if( $this->request->isDelete() ){
-            $key = $this->request->delete($this->primaryKey);
-            AuthGroupAccess::destroy([$this->primaryKey => $key]);
-            $this->success('操作成功', url('Auth/index'));
-        }else{
-            $data = [];
-            $dataArrObj = AuthGroupAccess::where(['groupId' => $this->request->get($this->primaryKey)])->select();
-            if( !empty($dataArrObj) ){
-                foreach ( $dataArrObj as $dataObj ){
-                    $userObj = User::get([$this->primaryKey => $dataObj->uid]);
-                    $userDataObj = UserData::get(['uid' => $dataObj->uid]);
-                    $_data['id'] = $dataObj->id;
-                    $_data['username'] = $userObj->username;
-                    $_data['nickname'] = $userObj->nickname;
-                    if( !is_null($userDataObj) ){
-                        $userDataObj->toArray();
-                        $_data['loginTimes'] = $userDataObj['loginTimes'];
-                        $_data['lastLoginTime'] = $userDataObj['lastLoginTime'];
-                        $_data['lastLoginIp'] = $userDataObj['lastLoginIp'];
-                    }else{
-                        $_data['loginTimes'] = 0;
-                        $_data['lastLoginTime'] = 0;
-                        $_data['lastLoginIp'] = 0;
-                    }
-                    $data[] = $_data;
-                }
-            }
-            $table = [
-                'tempType' => 'table',
-                'header' => [
-                    [
-                        'field' => 'username',
-                        'info' => '用户账号'
-                    ],
-                    [
-                        'field' => 'nickname',
-                        'info' => '用户昵称'
-                    ],
-                    [
-                        'field' => 'loginTimes',
-                        'info' => '登录次数'
-                    ],
-                    [
-                        'field' => 'lastLoginTime',
-                        'info' => '最后登录时间'
-                    ],
-                    [
-                        'field' => 'lastLoginIp',
-                        'info' => '最后登录IP'
-                    ]
-                ],
-                'rightButton' => [
-                    [
-                        'info' => '删除',
-                        'href' => url('Auth/userAuth'),
-                        'class'=> 'btn-danger ajax-delete',
-                        'param'=> [$this->primaryKey],
-                        'icon' => 'fa fa-trash',
-                        'confirm' => 1,
-                    ]
-                ],
-                'typeRule' => [
-                    'lastLoginTime' => [
-                        'module' => 'date',
-                    ]
-                ],
-                'data' => $data
-            ];
-            $this->result($table, ReturnCode::GET_TEMPLATE_SUCCESS);
-        }
-    }
-
-    /**
-     * 加载权限因子
-     */
-    public function access(){
-        $authList = cache('AuthRule');
-        if( !$authList ){
-            $authList = $this->refreshAuth();
-        }
-        if( $this->request->isPut() ){
-            $gid = session('authGid');
-            if( !$gid ){
-                $this->error('组ID丢失！');
-            }
-            $url = $this->request->put('urlName');
-            $getAuth = $this->request->put('get');
-            $putAuth = $this->request->put('put');
-            $deleteAuth = $this->request->put('delete');
-            $postAuth = $this->request->put('post');
-            $auth = \Permission::AUTH_GET * $getAuth + \Permission::AUTH_DELETE * $deleteAuth + \Permission::AUTH_POST * $postAuth + \Permission::AUTH_PUT * $putAuth;
-            $authDetail = AuthRule::get( ['groupId' => $gid, 'url' => $url] );
-            if( $authDetail ){
-                $authDetail->auth = $auth;
-                $authDetail->save();
-            }else{
-                $newAuthDetail = new AuthRule();
-                $newAuthDetail->url = $url;
-                $newAuthDetail->groupId = $gid;
-                $newAuthDetail->auth = $auth;
-                $newAuthDetail->save();
-            }
-            $this->success('更新成功！', url('Auth/access'), '', 1);
-        }else{
-            $gid = $this->request->get('id')?$this->request->get('id'):session('authGid');
-            if( !$gid ){
-                $this->result('', ReturnCode::GET_TEMPLATE_ERROR, '组ID丢失！');
-            }else{
-                session('authGid', $gid);
-            }
-            $authRuleArr = AuthRule::where(['groupId' => $gid])->select();
-            if( $authRuleArr ){
-                $authRule = [];
-                foreach ( $authRuleArr as $value ){
-                    $authRule[$value->url] = $value->auth;
-                }
-                foreach ( $authList as &$authValue ){
-                    $authRuleValue = isset($authRule[$authValue['url']])?$authRule[$authValue['url']]:0;
-                    $authValue['get'] = \Permission::AUTH_GET & $authRuleValue;
-                    $authValue['post'] = \Permission::AUTH_POST & $authRuleValue;
-                    $authValue['put'] = \Permission::AUTH_PUT & $authRuleValue;
-                    $authValue['delete'] = \Permission::AUTH_DELETE & $authRuleValue;
-                }
-            }
-            $table = [
-                'tempType' => 'table',
-                'header' => [
-                    [
-                        'field' => 'showName',
-                        'info' => '权限名称'
-                    ],
-                    [
-                        'field' => 'url',
-                        'info' => 'URL标识'
-                    ],
-                    [
-                        'field' => 'token',
-                        'info' => '真实URL'
-                    ],
-                    [
-                        'field' => 'get',
-                        'info' => 'Get'
-                    ],
-                    [
-                        'field' => 'put',
-                        'info' => 'Put'
-                    ],
-                    [
-                        'field' => 'post',
-                        'info' => 'Post'
-                    ],
-                    [
-                        'field' => 'delete',
-                        'info' => 'Delete'
-                    ]
-                ],
-                'typeRule' => [
-                    'post' => [
-                        'module' => 'auth',
-                        'rule' => [
-                            'value' => '',
-                            'url' => url('Auth/access')
-                        ]
-                    ],
-                    'get' => [
-                        'module' => 'auth',
-                        'rule' => [
-                            'value' => '',
-                            'url' => url('Auth/access')
-                        ]
-                    ],
-                    'put' => [
-                        'module' => 'auth',
-                        'rule' => [
-                            'value' => '',
-                            'url' => url('Auth/access')
-                        ]
-                    ],
-                    'delete' => [
-                        'module' => 'auth',
-                        'rule' => [
-                            'value' => '',
-                            'url' => url('Auth/access')
-                        ]
-                    ]
-                ],
-                'data' => $authList
-            ];
-            $this->result($table, ReturnCode::GET_TEMPLATE_SUCCESS);
-        }
-    }
-
-    /**
-     * 刷新权限因子缓存
-     * @param array $menu
+     * 获取权限组列表
      * @return array
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
      */
-    public function refreshAuth( $menu = [] ){
-        if( empty($menu) ){
-            $menuObj = \app\admin\model\Menu::all(function($query){
-                $query->order('sort', 'asc');
-            });
-            foreach ($menuObj as $value){
-                $menuArr = $value->toArray();
-                if( $menuArr['url'] ){
-                    $menuArr['token'] = url($menuArr['url']);
-                }else{
-                    $menuArr['token'] = '';
-                }
-                $menu[] = $menuArr;
-            }
-            $menu = formatTree(listToTree($menu));
+    public function index() {
+
+        $limit = $this->request->get('size', config('apiadmin.ADMIN_LIST_DEFAULT'));
+        $start = $this->request->get('page', 1);
+        $keywords = $this->request->get('keywords', '');
+        $status = $this->request->get('status', '');
+
+        $obj = new AdminAuthGroup();
+        if (strlen($status)) {
+            $obj = $obj->where('status', $status);
         }
-        cache('AuthRule', $menu);
-        return $menu;
+        if ($keywords) {
+            $obj = $obj->whereLike('name', "%{$keywords}%");
+        }
+
+        $listObj = $obj->order('id DESC')->paginate($limit, false, ['page' => $start])->toArray();
+
+        return $this->buildSuccess([
+            'list'  => $listObj['data'],
+            'count' => $listObj['total']
+        ]);
     }
 
+    /**
+     * 获取全部已开放的可选组
+     * @return array
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function getGroups() {
+        $listInfo = (new AdminAuthGroup())->where(['status' => 1])->order('id', 'DESC')->select();
+        $count = count($listInfo);
+        $listInfo = Tools::buildArrFromObj($listInfo);
+
+        return $this->buildSuccess([
+            'list'  => $listInfo,
+            'count' => $count
+        ]);
+    }
+
+    /**
+     * 获取组所在权限列表
+     * @return array
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function getRuleList() {
+        $groupId = $this->request->get('group_id', 0);
+
+        $list = (new AdminMenu)->where([])->order('sort', 'ASC')->select();
+        $list = Tools::buildArrFromObj($list);
+        $list = Tools::listToTree($list);
+
+        $rules = [];
+        if ($groupId) {
+            $rules = (new AdminAuthRule())->where(['group_id' => $groupId])->select();
+            $rules = Tools::buildArrFromObj($rules);
+            $rules = array_column($rules, 'url');
+        }
+        $newList = $this->buildList($list, $rules);
+
+        return $this->buildSuccess([
+            'list' => $newList
+        ]);
+    }
+
+    /**
+     * 新增组
+     * @return array
+     * @throws \Exception
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function add() {
+        $rules = [];
+        $postData = $this->request->post();
+        if ($postData['rules']) {
+            $rules = $postData['rules'];
+            $rules = array_filter($rules);
+        }
+        unset($postData['rules']);
+        $res = AdminAuthGroup::create($postData);
+        if ($res === false) {
+            return $this->buildFailed(ReturnCode::DB_SAVE_ERROR, '操作失败');
+        } else {
+            if ($rules) {
+                $insertData = [];
+                foreach ($rules as $value) {
+                    if ($value) {
+                        $insertData[] = [
+                            'group_id' => $res->id,
+                            'url'      => $value
+                        ];
+                    }
+                }
+                (new AdminAuthRule())->saveAll($insertData);
+            }
+
+            return $this->buildSuccess([]);
+        }
+    }
+
+    /**
+     * 权限组状态编辑
+     * @return array
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function changeStatus() {
+        $id = $this->request->get('id');
+        $status = $this->request->get('status');
+        $res = AdminAuthGroup::update([
+            'id'     => $id,
+            'status' => $status
+        ]);
+        if ($res === false) {
+            return $this->buildFailed(ReturnCode::DB_SAVE_ERROR, '操作失败');
+        } else {
+            return $this->buildSuccess([]);
+        }
+    }
+
+    /**
+     * 编辑用户
+     * @return array
+     * @throws \Exception
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function edit() {
+        $postData = $this->request->post();
+        if ($postData['rules']) {
+            $this->editRule();
+        }
+        unset($postData['rules']);
+        $res = AdminAuthGroup::update($postData);
+        if ($res === false) {
+            return $this->buildFailed(ReturnCode::DB_SAVE_ERROR, '操作失败');
+        } else {
+            return $this->buildSuccess([]);
+        }
+    }
+
+    /**
+     * 删除组
+     * @return array
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function del() {
+        $id = $this->request->get('id');
+        if (!$id) {
+            return $this->buildFailed(ReturnCode::EMPTY_PARAMS, '缺少必要参数');
+        }
+
+        $listInfo = (new AdminAuthGroupAccess())->where('find_in_set("' . $id . '", `group_id`)')->select();
+        if ($listInfo) {
+            foreach ($listInfo as $value) {
+                $oldGroupArr = explode(',', $value->group_id);
+                $key = array_search($id, $oldGroupArr);
+                unset($oldGroupArr[$key]);
+                $newData = implode(',', $oldGroupArr);
+                $value->group_id = $newData;
+                $value->save();
+            }
+        }
+
+        AdminAuthGroup::destroy($id);
+        AdminAuthRule::destroy(['group_id' => $id]);
+
+        return $this->buildSuccess([]);
+    }
+
+    /**
+     * 从指定组中删除指定用户
+     * @return array
+     * @throws \think\Exception
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    public function delMember() {
+        $gid = $this->request->get('gid', 0);
+        $uid = $this->request->get('uid', 0);
+        if (!$gid || !$uid) {
+            return $this->buildFailed(ReturnCode::EMPTY_PARAMS, '缺少必要参数');
+        }
+        $oldInfo = AdminAuthGroupAccess::get(['uid' => $uid])->toArray();
+        $oldGroupArr = explode(',', $oldInfo['group_id']);
+        $key = array_search($gid, $oldGroupArr);
+        unset($oldGroupArr[$key]);
+        $newData = implode(',', $oldGroupArr);
+        $res = AdminAuthGroupAccess::update([
+            'group_id' => $newData
+        ], [
+            'uid' => $uid
+        ]);
+        if ($res === false) {
+            return $this->buildFailed(ReturnCode::DB_SAVE_ERROR, '操作失败');
+        } else {
+            return $this->buildSuccess([]);
+        }
+    }
+
+    /**
+     * 构建适用前端的权限数据
+     * @param $list
+     * @param $rules
+     * @return array
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    private function buildList($list, $rules) {
+        $newList = [];
+        foreach ($list as $key => $value) {
+            $newList[$key]['title'] = $value['name'];
+            $newList[$key]['key'] = $value['url'];
+            if (isset($value['_child'])) {
+                $newList[$key]['expand'] = true;
+                $newList[$key]['children'] = $this->buildList($value['_child'], $rules);
+            } else {
+                if (in_array($value['url'], $rules)) {
+                    $newList[$key]['checked'] = true;
+                }
+            }
+        }
+
+        return $newList;
+    }
+
+    /**
+     * 编辑权限细节
+     * @throws \Exception
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     * @author zhaoxiang <zhaoxiang051405@gmail.com>
+     */
+    private function editRule() {
+        $postData = $this->request->post();
+        $needAdd = [];
+        $has = (new AdminAuthRule())->where(['group_id' => $postData['id']])->select();
+        $has = Tools::buildArrFromObj($has);
+        $hasRule = array_column($has, 'url');
+        $needDel = array_flip($hasRule);
+        foreach ($postData['rules'] as $key => $value) {
+            if (!empty($value)) {
+                if (!in_array($value, $hasRule)) {
+                    $data['url'] = $value;
+                    $data['group_id'] = $postData['id'];
+                    $needAdd[] = $data;
+                } else {
+                    unset($needDel[$value]);
+                }
+            }
+        }
+        if (count($needAdd)) {
+            (new AdminAuthRule())->saveAll($needAdd);
+        }
+        if (count($needDel)) {
+            $urlArr = array_keys($needDel);
+            (new AdminAuthRule())->whereIn('url', $urlArr)->where('group_id', $postData['id'])->delete();
+        }
+    }
 
 }
